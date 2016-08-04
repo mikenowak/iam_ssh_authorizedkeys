@@ -27,9 +27,9 @@ AuthorizedKeysCommandUser nobody
 
 Now `ssh user@ec-instance` with a valid key.
 
-## CoreOS cloud-config
+## cloud-config
 
-For mass deployment use something like this
+In order to automate deployment of iam_ssh_authorizedkeys to CoreOS the following `cloud-config` template can be used:
 
 ```
 #cloud-config
@@ -47,15 +47,25 @@ write_files:
 
       PermitRootLogin no
       PasswordAuthentication no
-	  AuthorizedKeysCommand /usr/local/bin/iam_ssh_authorizedkeys
-	  AuthorizedKeysCommandUser nobody
-```
+      AuthorizedKeysCommand /usr/local/bin/iam_ssh_authorizedkeys
+      AuthorizedKeysCommandUser nobody
 
-Plus run the following to get the binary on the system
+coreos:
+  units:
+    - name: "iamssh.service"
+      command: "start"
+      content: |
+        [Unit]
+        Description=Installs iam_ssh_authorizedkeys
+        ConditionPathExists=!/usr/local/bin/iam_ssh_authorizedkeys
 
-```
-curl -fsSL https://github.com/bytewareio/iam_ssh_authorizedkeys/releases/download/iam_authorized_keys-0.0,1/iam_ssh_authorizedkeys-linux64 -o /usr/local/bin/iam_ssh_authorizedkeys
-chmod +x /usr/local/bin/iam_ssh_authorizedkeys
+        [Service]
+        Environment=IAMSSH_PATH=/usr/local/bin/iam_ssh_authorizedkeys
+        Environment=IAMSSH_VER=0.1.0
+        Environment=IAMSSH_URL=https://github.com/bytewareio/iam_ssh_authorizedkeys/releases/download/iam_authorized_keys-${IAMSSH_VER}/iam_ssh_authorizedkeys-linux64
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/bash -c "/usr/bin/curl -fsSL --retry 5 --retry-delay 2 -o ${IAMSSH_PATH} ${IAMSSH_URL} && chmod 0755 ${IAMSSH_PATH}"
 ```
 
 ## Copyright and License
