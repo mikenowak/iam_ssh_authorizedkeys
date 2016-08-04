@@ -2,18 +2,32 @@
 
 This is my first `Go` program, and largely WIP and of course pull requests are very much welcome!
 
-The purpose of this project is to provide `AuthorizedKeysCommand` IAM provider for `OpenSSH`. `iam_ssh_authorizedkeys` has been written with [CoreOS](https://coreos.com/) in mind, as it is quite a lot of hassle to install `awscli` on CoreOS in the way that satisfied my bizarre minimalistic taste. 
+The purpose of this project is to provide `AuthorizedKeysCommand` IAM provider for `OpenSSH`. 
 
-`iam_ssh_authorizedkeys` does not create users, and assumes that user accounts are created by some other means.
+`iam_ssh_authorizedkeys` has been written with [CoreOS](https://coreos.com/) in mind, as it is quite a lot of hassle to install `awscli` on CoreOS in the way that satisfied my bizarre minimalistic taste. 
 
-It is expected that your users are already created in `IAM`, and that they have corresponding `SSH keys for AWS CodeCommit` setup. `iam_ssh_authorizedkeys` will iterate through these keys and validate access in real time (as the connection happens).
+`iam_ssh_authorizedkeys` does not create system users, and assumes that local user accounts are created by some other means (i.e. `cloud-config`).
 
-In order to make this work you need to either:
-* Add your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to `/etc/environment` (less secure)
-* Associate your `EC2` instance with an `IAM Role` that has a policy similar to to the bellow attached (more seucre)
-```
+## How does it work?
+
+You create your users in `IAM` and upload corresponding `SSH public keys` for these users to IAM under the `Security Credentials` tab.
+
+Then you install 'iam_ssh_authorizedkeys' on your `EC2 instance`, and let it do the magic.
+
+When a user tries to login via ssh, the `sshd` calls `/opt/bin/iam_ssh_authorizedkeys USER` which in its turn makes request to IAM for SSH public keys for a given user. User is then allowed or denied access, based on whether a private key matching one of the public keys returned by `iam_ssh_authorizedkeys` is presented.
+
+## Step by step setup
+
+The following steps relate to [CoreOS](https://coreos.com/), but they really should work on most Linux distributions.
+
+1. Create you users in IAM
+2. Upload SSH public key(s) to IAM (this is done in user options under the Security Credentials)
+3. Make sure that `ssh_iam_authorizedkeys` has access to valid AWS credentials, one of the following should do the trick:
+  * Add your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to `/etc/environment` (less secure, static credentials)
+  * Create an `IAM Role` that has the following policy attached, you use will need to specify this as IAM role when launching your `EC2 instances` (more secure, benefits from auto-rotating credentials)
+  ```
 {
-    "Version": "2012-10-17",
+    "Version": "2012-10-17", 
     "Statement": [
         {
             "Effect": "Allow",
@@ -27,26 +41,11 @@ In order to make this work you need to either:
         }
     ]
 }
-```
+  ```
 
-## Usage
+4. Use the following `cloud-config` template as your instance `meta-data`
 
-iam_ssh_authorizedkeys needs to be placed on the system in location of your chocie (i.e. `/usr/local/bin`)
-
-Also the following lines in `/etc/ssh/sshd_config` are needed:
-
-```
-AuthorizedKeysCommand /usr/local/bin/iam_ssh_authorizedkeys
-AuthorizedKeysCommandUser nobody
-```
-
-Now `ssh user@ec-instance` with a valid key.
-
-## cloud-config
-
-In order to automate deployment of iam_ssh_authorizedkeys to CoreOS the following `cloud-config` template can be used:
-
-```
+  ```
 #cloud-config
 
 write_files:
@@ -82,7 +81,20 @@ coreos:
         RemainAfterExit=yes
         ExecStartPre=/usr/bin/bash -c "mkdir -p /opt/bin && chmod -R 0755 /opt"
         ExecStart=/usr/bin/bash -c "/usr/bin/curl -fsSL --retry 5 --retry-delay 2 -o ${IAMSSH_PATH} ${IAMSSH_URL} && chmod 0755 ${IAMSSH_PATH}"
+  ```
+
+5. Launch the instance.
+
+## Caveats
+
+It is important to note that with the setup described above, the users  can add their public keys to their `.ssh/authorized_keys` manually, and they would be still successfully authenticated based on these keys, even if the corresponding public keys don’t exist in IAM.
+
+In order to stop that, and to make sure that only keys added to 'IAM' are consulted for authentication, add the following line to `/etc/ssh/sshd_config`.
+
 ```
+AuthorizedKeysFile /dev/null
+```
+
 
 ## Todo
 
