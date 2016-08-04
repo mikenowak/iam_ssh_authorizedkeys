@@ -1,21 +1,18 @@
 package main
 
 import (
-	"os"
 	"fmt"
-	
-	
+	"log"
+	"os"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 )
 
-var (
-	version = "0.0.1"
-)
-
 const (
-	usage = `
+	version = "0.0.1"
+	usage   = `
 Usage:
   $ iam_ssh_authorizedkeys <username>
   
@@ -26,7 +23,8 @@ Options:
 )
 
 func main() {
-	args := os.Args	
+	args := os.Args
+
 	if len(args) != 2 || args[1] == "-h" || args[1] == "--help" {
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
@@ -37,17 +35,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	user := args[1]	
-	if len(user) > 32 {
-		fmt.Fprintln(os.Stderr, "Username too long")
-		os.Exit(1)
-	}
-	
 	svc := iam.New(session.New(), &aws.Config{})
-	
-	resp, err := svc.ListSSHPublicKeys(&iam.ListSSHPublicKeysInput{ UserName: aws.String(user), })
+
+	user := args[1]
+	resp, err := svc.ListSSHPublicKeys(&iam.ListSSHPublicKeysInput{UserName: aws.String(user)})
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	for _, pk := range resp.SSHPublicKeys {
@@ -58,13 +51,12 @@ func main() {
 				UserName:       aws.String(user),
 			})
 			if pkerr != nil {
-				panic(pkerr)
+				log.Fatal(pkerr)
 			}
-			
+
 			fmt.Println(*pkresp.SSHPublicKey.SSHPublicKeyBody)
 		}
 	}
-	
+
 	os.Exit(0)
 }
-
