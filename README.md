@@ -8,10 +8,25 @@ The purpose of this project is to provide `AuthorizedKeysCommand` IAM provider f
 
 It is expected that your users are already created in `IAM`, and that they have corresponding `SSH keys for AWS CodeCommit` setup. `iam_ssh_authorizedkeys` will iterate through these keys and validate access in real time (as the connection happens).
 
-It is probably worth noting that your `EC2` instances need to be associated with a `IAM Role` that allows the following privileges:
+In order to make this work you need to either:
+* Add your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to `/etc/environment` (less secure)
+* Associate your `EC2` instance with an `IAM Role` that has a policy similar to to the bellow attached (more seucre)
 ```
-iam:ListSSHPublicKeys
-iam:GetSSHPublicKey
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:ListSSHPublicKeys",
+                "iam:GetSSHPublicKey"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
 ```
 
 ## Usage
@@ -47,7 +62,7 @@ write_files:
 
       PermitRootLogin no
       PasswordAuthentication no
-      AuthorizedKeysCommand /usr/local/bin/iam_ssh_authorizedkeys
+      AuthorizedKeysCommand /opt/bin/iam_ssh_authorizedkeys
       AuthorizedKeysCommandUser nobody
 
 coreos:
@@ -57,16 +72,22 @@ coreos:
       content: |
         [Unit]
         Description=Installs iam_ssh_authorizedkeys
-        ConditionPathExists=!/usr/local/bin/iam_ssh_authorizedkeys
+        ConditionPathExists=!/opt/bin/iam_ssh_authorizedkeys
 
         [Service]
-        Environment=IAMSSH_PATH=/usr/local/bin/iam_ssh_authorizedkeys
+        Environment=IAMSSH_PATH=/opt/bin/iam_ssh_authorizedkeys
         Environment=IAMSSH_VER=0.1.0
-        Environment=IAMSSH_URL=https://github.com/bytewareio/iam_ssh_authorizedkeys/releases/download/iam_authorized_keys-${IAMSSH_VER}/iam_ssh_authorizedkeys-linux64
+        Environment=IAMSSH_URL=https://github.com/bytewareio/iam_ssh_authorizedkeys/releases/download/${IAMSSH_VER}/iam_ssh_authorizedkeys-linux64
         Type=oneshot
         RemainAfterExit=yes
+        ExecStartPre=/usr/bin/bash -c "mkdir -p /opt/bin && chmod -R 0755 /opt"
         ExecStart=/usr/bin/bash -c "/usr/bin/curl -fsSL --retry 5 --retry-delay 2 -o ${IAMSSH_PATH} ${IAMSSH_URL} && chmod 0755 ${IAMSSH_PATH}"
 ```
+
+## Todo
+
+The following features are currently:
+* Support for assuming AWS roles (for cross-account access)
 
 ## Copyright and License
 
