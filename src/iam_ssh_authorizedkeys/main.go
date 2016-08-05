@@ -18,7 +18,7 @@ Usage:
   
 Options:
   -h, --help		Show usage
-  --version			Show version
+  --version		Show version
 `
 )
 
