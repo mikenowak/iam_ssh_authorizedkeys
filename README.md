@@ -43,7 +43,7 @@ The following steps relate to [CoreOS](https://coreos.com/), but they really sho
 }
   ```
 
-4. Use the following `cloud-config` template as your instance `meta-data`
+4. Use the following `cloud-config` template as your instance `user-data`
 
   ```
 #cloud-config
@@ -89,7 +89,7 @@ coreos:
 
 It is important to note that with the setup described above, the users  can add their public keys to their `.ssh/authorized_keys` manually, and they would be still successfully authenticated based on these keys, even if the corresponding public keys don’t exist in IAM.
 
-In order to stop that, and to make sure that only keys added to 'IAM' are consulted for authentication, add the following line to `/etc/ssh/sshd_config`.
+In order to stop that, and to make sure that only keys added to 'IAM' are consulted for authentication, add the following line to `/etc/ssh/sshd_config`
 
 ```
 AuthorizedKeysFile /dev/null
@@ -98,7 +98,7 @@ AuthorizedKeysFile /dev/null
 
 ## Todo
 
-The following features are currently:
+The following features are currently being investigated:
 * Support for assuming AWS roles (for cross-account access)
 
 ## Copyright and License
